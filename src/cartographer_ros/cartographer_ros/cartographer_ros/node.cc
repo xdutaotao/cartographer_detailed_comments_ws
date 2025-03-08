@@ -553,6 +553,7 @@ Node::ComputeExpectedSensorIds(const TrajectoryOptions& options) const {
 
   // 如果只有一个传感器, 那订阅的topic就是topic
   // 如果是多个传感器, 那订阅的topic就是topic_1,topic_2, 依次类推
+  // RANGE， 雷达LDS
   for (const std::string& topic :
        ComputeRepeatedTopicNames(kLaserScanTopic, options.num_laser_scans)) {
     expected_topics.insert(SensorId{SensorType::RANGE, topic});
@@ -566,7 +567,7 @@ Node::ComputeExpectedSensorIds(const TrajectoryOptions& options) const {
     expected_topics.insert(SensorId{SensorType::RANGE, topic});
   }
   // For 2D SLAM, subscribe to the IMU if we expect it. For 3D SLAM, the IMU is
-  // required.
+  // required. IMU
   // 3d slam必须有imu, 2d可有可无, imu的topic的个数只能有一个
   if (node_options_.map_builder_options.use_trajectory_builder_3d() ||
       (node_options_.map_builder_options.use_trajectory_builder_2d() &&
@@ -574,18 +575,18 @@ Node::ComputeExpectedSensorIds(const TrajectoryOptions& options) const {
            .use_imu_data())) {
     expected_topics.insert(SensorId{SensorType::IMU, kImuTopic});
   }
-  // Odometry is optional.
+  // Odometry is optional. ODOMETRY
   // 里程计可有可无, topic的个数只能有一个
   if (options.use_odometry) {
     expected_topics.insert(SensorId{SensorType::ODOMETRY, kOdometryTopic});
   }
-  // NavSatFix is optional.
+  // NavSatFix is optional. FIXED_FRAME_POSE GPS
   // gps可有可无, topic的个数只能有一个
   if (options.use_nav_sat) {
     expected_topics.insert(
         SensorId{SensorType::FIXED_FRAME_POSE, kNavSatFixTopic});
   }
-  // Landmark is optional.
+  // Landmark is optional. LANDMARK 二维码
   // Landmark可有可无, topic的个数只能有一个
   if (options.use_landmarks) {
     expected_topics.insert(SensorId{SensorType::LANDMARK, kLandmarkTopic});
@@ -929,6 +930,7 @@ Node::ComputeDefaultSensorIdsForMultipleBags(
   return bags_sensor_ids;
 }
 
+// 离线运行bag文件
 int Node::AddOfflineTrajectory(
     const std::set<cartographer::mapping::TrajectoryBuilderInterface::SensorId>&
         expected_sensor_ids,
@@ -936,7 +938,9 @@ int Node::AddOfflineTrajectory(
   absl::MutexLock lock(&mutex_);
   const int trajectory_id =
       map_builder_bridge_.AddTrajectory(expected_sensor_ids, options);
+  // 离线位姿估计
   AddExtrapolator(trajectory_id, options);
+  // 新生成一个传感器数据采样器
   AddSensorSamplers(trajectory_id, options);
   return trajectory_id;
 }
@@ -1118,16 +1122,25 @@ void Node::RunFinalOptimization() {
 void Node::HandleOdometryMessage(const int trajectory_id,
                                  const std::string& sensor_id,
                                  const nav_msgs::Odometry::ConstPtr& msg) {
+
+  // 先加个锁
   absl::MutexLock lock(&mutex_);
+
+  // 从sensor采样队列中获取里程计的采样器数据
   if (!sensor_samplers_.at(trajectory_id).odometry_sampler.Pulse()) {
     return;
   }
+
+  // 先拿到sensor bridge,完成从ros格式到cartographer格式的转换
   auto sensor_bridge_ptr = map_builder_bridge_.sensor_bridge(trajectory_id);
   auto odometry_data_ptr = sensor_bridge_ptr->ToOdometryData(msg);
-  // extrapolators_使用里程计数据进行位姿预测
+
+  // 如果odom数据有效，extrapolators_使用里程计数据进行位姿预测
   if (odometry_data_ptr != nullptr) {
     extrapolators_.at(trajectory_id).AddOdometryData(*odometry_data_ptr);
   }
+
+  // 将里程计数据转换后，传入trajectory builder进行建图
   sensor_bridge_ptr->HandleOdometryMessage(sensor_id, msg);
 }
 

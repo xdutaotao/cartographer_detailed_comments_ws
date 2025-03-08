@@ -52,13 +52,17 @@ void ImuTracker::Advance(const common::Time time) {
   const double delta_t = common::ToSeconds(time - time_);  // 求时间差
   // 上一时刻的角速度乘以时间,得到当前时刻相对于上一时刻的预测的姿态变化量,再转换成四元数
 
-  // 分步骤1. 角速度*时间=角度，2.角度转换成四元数得到旋转量
+  // 这里只对姿态进行外推, 不对线加速度进行外推
+  // 采用的是imu的角速度*delta_t，得到R旋转量
   const Eigen::Quaterniond rotation =
       transform::AngleAxisVectorToRotationQuaternion(
           Eigen::Vector3d(imu_angular_velocity_ * delta_t));
+
+  // 在上一时刻的姿态上*旋转量，并进行归一化
   // 使用上一时刻的姿态 orientation_ 乘以姿态变化量, 得到当前时刻的预测出的姿态
   orientation_ = (orientation_ * rotation).normalized();
 
+  // 并对当前的重力向量进行旋转量更新，注意这里取旋转量的逆变换
   // 根据预测出的姿态变化量,预测旋转后的线性加速度的值
   gravity_vector_ = rotation.conjugate() * gravity_vector_;
   // 更新时间

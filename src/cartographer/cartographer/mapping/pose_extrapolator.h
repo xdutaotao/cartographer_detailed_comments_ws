@@ -83,6 +83,7 @@ class PoseExtrapolator : public PoseExtrapolatorInterface {
     common::Time time;
     transform::Rigid3d pose;
   };
+  // 保存pose的队列，这里表示已经处理过的pose
   std::deque<TimedPose> timed_pose_queue_;
   // 线速度有2种计算途径
   Eigen::Vector3d linear_velocity_from_poses_ = Eigen::Vector3d::Zero();
@@ -96,13 +97,19 @@ class PoseExtrapolator : public PoseExtrapolatorInterface {
   // 只能通过 std::move() 来移动unique_ptr
   // std::make_unique 是 C++14 才有的特性
 
+  // 这里有3个ImuTracker, 分别用于预测当前姿态, 计算里程计的姿态, 预测姿态
   std::unique_ptr<ImuTracker> imu_tracker_;               // 保存与预测当前姿态
   std::unique_ptr<ImuTracker> odometry_imu_tracker_;      // 用于计算里程计的姿态的ImuTracker
   std::unique_ptr<ImuTracker> extrapolation_imu_tracker_; // 用于预测姿态的ImuTracker
+
+  // cache最近一次计算的timedPose，用来减少同时间的重复计算
   TimedPose cached_extrapolated_pose_;
 
+  // 里程计数据的队列，至少2个数据
   std::deque<sensor::OdometryData> odometry_data_;
+  // 从odom中计算的线速度
   Eigen::Vector3d linear_velocity_from_odometry_ = Eigen::Vector3d::Zero();
+  // 从odom中计算的角速度
   Eigen::Vector3d angular_velocity_from_odometry_ = Eigen::Vector3d::Zero();
 };
 

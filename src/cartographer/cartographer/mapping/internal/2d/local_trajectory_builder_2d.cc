@@ -318,7 +318,7 @@ LocalTrajectoryBuilder2D::AddAccumulatedRangeData(
   }
 
   // local map frame <- gravity-aligned frame
-  // 扫描匹配, 进行点云与submap的匹配
+  // 扫描匹配, 进行点云与submap的匹配，在pose_prediction附近搜索
   std::unique_ptr<transform::Rigid2d> pose_estimate_2d =
       ScanMatch(time, pose_prediction, filtered_gravity_aligned_point_cloud);
 
@@ -330,6 +330,8 @@ LocalTrajectoryBuilder2D::AddAccumulatedRangeData(
   // 将二维坐标旋转回之前的姿态
   const transform::Rigid3d pose_estimate =
       transform::Embed3D(*pose_estimate_2d) * gravity_alignment;
+  
+  // 将当前时间和scan match后的位姿进入pose进行校准
   // 校准位姿估计器
   extrapolator_->AddPose(time, pose_estimate);
 

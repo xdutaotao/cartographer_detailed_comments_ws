@@ -81,6 +81,7 @@ void SensorBridge::HandleOdometryMessage(
   // 数据类型与数据坐标系的转换
   std::unique_ptr<carto::sensor::OdometryData> odometry_data =
       ToOdometryData(msg);
+  // 将odom数据传入trajectory builder
   if (odometry_data != nullptr) {
     // tag: 这个trajectory_builder_是谁, 讲map_builder时候再揭晓
     trajectory_builder_->AddSensorData(

@@ -172,6 +172,7 @@ class Rigid3 {
   // T = [R t] T^-1 = [R^-1  -R^-1 * t]
   //     [0 1]        [0         1    ] 
   // R是旋转矩阵, 特殊正交群, 所以R^-1 = R^T
+  // 求逆的公式
   Rigid3 inverse() const {
     const Quaternion rotation = rotation_.conjugate();
     const Vector translation = -(rotation * translation_);
