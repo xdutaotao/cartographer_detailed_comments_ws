@@ -40,8 +40,9 @@ class ImuTracker {
   ImuTracker(double imu_gravity_time_constant, common::Time time);
 
   // Advances to the given 'time' and updates the orientation to reflect this.
-  void Advance(common::Time time);
+  void Advance(common::Time time); // 提前预测time对应的位姿
 
+  // 加入IMU的角速度和线加速度
   // Updates from an IMU reading (in the IMU frame).
   void AddImuLinearAccelerationObservation(
       const Eigen::Vector3d& imu_linear_acceleration);
@@ -57,12 +58,12 @@ class ImuTracker {
   Eigen::Quaterniond orientation() const { return orientation_; }
 
  private:
-  const double imu_gravity_time_constant_;
-  common::Time time_;
-  common::Time last_linear_acceleration_time_;
-  Eigen::Quaterniond orientation_;
-  Eigen::Vector3d gravity_vector_;
-  Eigen::Vector3d imu_angular_velocity_;
+  const double imu_gravity_time_constant_;      // 重力时间常数 9.8 ?
+  common::Time time_;                           // 上一次预测位姿的时间戳
+  common::Time last_linear_acceleration_time_;  // 上一次加入线加速度的时间戳
+  Eigen::Quaterniond orientation_;              // 上一次预测的位姿
+  Eigen::Vector3d gravity_vector_;              // 重力方向，向量
+  Eigen::Vector3d imu_angular_velocity_;        // IMU的角速度
 };
 
 }  // namespace mapping

@@ -75,6 +75,7 @@ common::Time PoseExtrapolator::GetLastExtrapolatedTime() const {
   return extrapolation_imu_tracker_->time();
 }
 
+// 这里为什么要将scan匹配后的pose加入到pose队列中呢？
 // 将扫描匹配后的pose加入到pose队列中,计算线速度与角速度,并将imu_tracker_的状态更新到time时刻
 void PoseExtrapolator::AddPose(const common::Time time,
                                const transform::Rigid3d& pose) {
@@ -89,9 +90,10 @@ void PoseExtrapolator::AddPose(const common::Time time,
         absl::make_unique<ImuTracker>(gravity_time_constant_, tracker_start);
   }
 
-  // 在timed_pose_queue_中保存pose
+  // 在timed_pose_queue_中保存pose（scan匹配后的pose）
   timed_pose_queue_.push_back(TimedPose{time, pose});
 
+  // 只保留0.001s内的pose，且最少要两个pose
   // 保持pose队列中第二个pose的时间要大于 time - pose_queue_duration_
   while (timed_pose_queue_.size() > 2 && // timed_pose_queue_最少是2个数据
          timed_pose_queue_[1].time <= time - pose_queue_duration_) {
@@ -216,19 +218,26 @@ void PoseExtrapolator::UpdateVelocitiesFromPoses() {
   // 取出队列最开头的一个 Pose, 也就是最旧时间点的 Pose,并记录相应的时间
   const TimedPose& oldest_timed_pose = timed_pose_queue_.front();
   const auto oldest_time = oldest_timed_pose.time;
-  // 计算两者的时间差
+  // 计算两者的时间差为queue_delta
   const double queue_delta = common::ToSeconds(newest_time - oldest_time);
   // 如果时间差小于pose_queue_duration_(1ms), 不进行计算
+  // 这里小于1ms，还是保持原来的速率和角速度，不进行计算，因为时间太短，误差会比较大
   if (queue_delta < common::ToSeconds(pose_queue_duration_)) {
     LOG(WARNING) << "Queue too short for velocity estimation. Queue duration: "
                  << queue_delta << " s";
     return;
   }
+
+  // 取出最新与最旧的两个位姿
   const transform::Rigid3d& newest_pose = newest_timed_pose.pose;
   const transform::Rigid3d& oldest_pose = oldest_timed_pose.pose;
+
+  // 计算两个位姿间的平移量T
   // 平移量除以时间得到 tracking frame 在 local坐标系下的线速度
   linear_velocity_from_poses_ =
       (newest_pose.translation() - oldest_pose.translation()) / queue_delta;
+  
+  // 计算两个位姿间的旋转量R
   // 角度变化量除以时间得到角速度得到 tracking frame 在 local坐标系下的角速度
   angular_velocity_from_poses_ =
       transform::RotationQuaternionToAngleAxisVector(

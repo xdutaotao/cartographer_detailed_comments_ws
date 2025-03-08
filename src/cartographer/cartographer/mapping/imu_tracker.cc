@@ -37,8 +37,8 @@ ImuTracker::ImuTracker(const double imu_gravity_time_constant,
                        const common::Time time)
     : imu_gravity_time_constant_(imu_gravity_time_constant),
       time_(time),
-      last_linear_acceleration_time_(common::Time::min()),
-      orientation_(Eigen::Quaterniond::Identity()), // 初始方向角
+      last_linear_acceleration_time_(common::Time::min()),    // 初始化为最小时间
+      orientation_(Eigen::Quaterniond::Identity()), // 初始方向角四元数[1,0,0,0]，表示无旋转
       gravity_vector_(Eigen::Vector3d::UnitZ()),    // 重力方向初始化为[0,0,1]
       imu_angular_velocity_(Eigen::Vector3d::Zero()) {}
 
@@ -48,9 +48,11 @@ ImuTracker::ImuTracker(const double imu_gravity_time_constant,
  * @param[in] time 要预测的时刻
  */
 void ImuTracker::Advance(const common::Time time) {
-  CHECK_LE(time_, time);
-  const double delta_t = common::ToSeconds(time - time_);
+  CHECK_LE(time_, time); //检查传入的时间要比上一次预测的时间大
+  const double delta_t = common::ToSeconds(time - time_);  // 求时间差
   // 上一时刻的角速度乘以时间,得到当前时刻相对于上一时刻的预测的姿态变化量,再转换成四元数
+
+  // 分步骤1. 角速度*时间=角度，2.角度转换成四元数得到旋转量
   const Eigen::Quaterniond rotation =
       transform::AngleAxisVectorToRotationQuaternion(
           Eigen::Vector3d(imu_angular_velocity_ * delta_t));
